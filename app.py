@@ -43,25 +43,27 @@ st.markdown("---")
 st.header("📷 Real-Time Anomaly Detection")
 st.info("📸 If the camera isn't starting, make sure your browser allows webcam access and try refreshing the page.")
 
-# Streamlit WebRTC camera support with fail-safe
+# Streamlit WebRTC camera support with debugging and STUN fallback
 class VideoProcessor(VideoProcessorBase):
     def __init__(self):
         try:
             self.model = model
             self.class_names = class_names
+            print("✅ Model loaded in VideoProcessor")
         except Exception as e:
-            print("Model load failed in VideoProcessor:", e)
+            print("❌ Model load failed in VideoProcessor:", e)
 
     def recv(self, frame):
         try:
+            print("✅ Frame received")
             img = frame.to_ndarray(format="bgr24")
+
             resized = cv2.resize(img, (224, 224))
             input_img = np.expand_dims(resized / 255.0, axis=0)
 
             prediction = self.model.predict(input_img)
-            anomaly_score = float(prediction[0][1])  # cast to float for safety
+            anomaly_score = float(prediction[0][1])  # Assumes binary softmax or sigmoid output
             threshold = 0.5
-
             predicted_class = "Anomaly" if anomaly_score >= threshold else "Normal"
 
             # Draw prediction label
@@ -74,8 +76,8 @@ class VideoProcessor(VideoProcessorBase):
 
             return av.VideoFrame.from_ndarray(img, format="bgr24")
         except Exception as e:
-            print("WebRTC frame processing error:", e)
-            return frame
+            print("❌ WebRTC frame processing error:", e)
+            return frame  # Return raw frame if anything fails
 
 # Activate webcam with STUN server for Streamlit Cloud compatibility
 webrtc_streamer(
