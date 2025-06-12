@@ -1,4 +1,8 @@
 import streamlit as st
+
+# ✅ FIRST Streamlit command
+st.set_page_config(page_title="Anomaly Detector", layout="centered")
+
 import tensorflow as tf
 import numpy as np
 from PIL import Image
@@ -9,6 +13,9 @@ from streamlit_webrtc import (
     WebRtcMode,
     ClientSettings,
 )
+
+# ...rest of your code...
+
 
 # ----------------------------
 # Load the model once
