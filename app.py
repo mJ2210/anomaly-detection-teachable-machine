@@ -42,35 +42,44 @@ else:
 st.markdown("---")
 st.header("📷 Real-Time Anomaly Detection")
 
-# Streamlit WebRTC camera support
+st.info("📸 If the camera isn't starting, make sure your browser allows webcam access and try refreshing the page.")
+
+# Streamlit WebRTC camera support with fail-safe
 class VideoProcessor(VideoProcessorBase):
+    def __init__(self):
+        self.model = model
+        self.class_names = class_names
+
     def recv(self, frame):
-        img = frame.to_ndarray(format="bgr24")
+        try:
+            img = frame.to_ndarray(format="bgr24")
+            resized = cv2.resize(img, (224, 224))
+            input_img = np.expand_dims(resized / 255.0, axis=0)
 
-        resized = cv2.resize(img, (224, 224))
-        input_img = np.expand_dims(resized / 255.0, axis=0)
+            prediction = self.model.predict(input_img)
+            anomaly_score = prediction[0][1]  # Index 1 is "Anomaly"
+            threshold = 0.5
 
-        prediction = model.predict(input_img)
-        anomaly_score = prediction[0][1]  # Index 1 is assumed to be "Anomaly"
-        threshold = 0.5  # You can adjust this
+            predicted_class = "Anomaly" if anomaly_score >= threshold else "Normal"
 
-        predicted_class = "Anomaly" if anomaly_score >= threshold else "Normal"
+            # Draw prediction label
+            cv2.putText(img, predicted_class, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1,
+                        (0, 255, 0), 2, cv2.LINE_AA)
 
-        # Draw label
-        label = f"{predicted_class}"
-        cv2.putText(img, label, (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1,
-                    (0, 255, 0), 2, cv2.LINE_AA)
+            # Optional: draw anomaly score
+            cv2.putText(img, f"Score: {anomaly_score:.2f}", (10, 60), cv2.FONT_HERSHEY_SIMPLEX,
+                        0.6, (255, 255, 255), 1, cv2.LINE_AA)
 
-        # Optional: show anomaly score
-        cv2.putText(img, f"Anomaly score: {anomaly_score:.2f}", (10, 60),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 255), 1, cv2.LINE_AA)
+            return av.VideoFrame.from_ndarray(img, format="bgr24")
+        except Exception as e:
+            print("WebRTC frame processing error:", e)
+            return frame  # Return original frame if processing fails
 
-        return av.VideoFrame.from_ndarray(img, format="bgr24")
-
-# Activate webcam in browser
+# Activate webcam with STUN server for Streamlit Cloud compatibility
 webrtc_streamer(
     key="anomaly-stream",
     video_processor_factory=VideoProcessor,
     media_stream_constraints={"video": True, "audio": False},
+    rtc_configuration={"iceServers": [{"urls": ["stun:stun.l.google.com:19302"]}]},
     async_processing=True,
 )
